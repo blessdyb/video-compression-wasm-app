@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <title>WASM FFmpeg Example</title>
+</head>
+
+<body>
+    <h1>WASM FFmpeg Example</h1>
+    <input type="file" id="inputFile" accept="video/mp4">
+    <button id="convertButton">Convert</button>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+    <script type="module">
+        import init, { process_video } from './pkg/wasm_ffmpeg.js';
+
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        async function main() {
+            await init();
+
+            document.getElementById('convertButton').addEventListener('click', async () => {
+                const inputFileElement = document.getElementById('inputFile');
+                const inputFile = inputFileElement.files[0];
+                if (inputFile) {
+                    const inputFilePath = URL.createObjectURL(inputFile);
+
+                    await ffmpeg.load();
+                    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(inputFilePath));
+
+                    const ffmpegCommand = process_video('input.mp4', 'output.mp4');
+                    console.log(`Running command: ${ffmpegCommand}`);
+
+                    await ffmpeg.run('-i', 'input.mp4', '-c:v', 'libx264', '-tag:v', 'avc1', '-movflags', 'faststart', '-crf', '30', '-preset', 'superfast', 'output.mp4');
+
+                    const data = ffmpeg.FS('readFile', 'output.mp4');
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+                    video.controls = true;
+                    document.body.appendChild(video);
+                } else {
+                    alert('Please select an input file.');
+                }
+            });
+        }
+
+        main();
+    </script>
+</body>
+
+</html>
